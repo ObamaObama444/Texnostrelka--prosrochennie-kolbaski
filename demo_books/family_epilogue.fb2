@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <body>
+    <section>
+      <title><p>1</p></title>
+      <p>Мария долго искала слова, чтобы признаться в своих сомнениях.</p>
+      <p>Герои спорили о том, стоит ли им возвращаться домой.</p>
+    </section>
+    <section>
+      <title><p>2</p></title>
+      <p>В финале семья все-таки вернулась в дом и решила начать новую жизнь.</p>
+      <p>Это решение стало символом примирения и надежды.</p>
+    </section>
+  </body>
+</FictionBook>

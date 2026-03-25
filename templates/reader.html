@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>BookVerse - Чтение</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='legacy/library.css') }}?v={{ asset_version }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='legacy/bridge.css') }}?v={{ asset_version }}">
+    <link rel="stylesheet" href="{{ request.url_for('static', path='legacy/reader.css') }}?v={{ asset_version }}">
+</head>
+<body class="reader-body">
+    <nav class="main-nav">
+        <div class="nav-brand">
+            <a href="/" class="nav-link">📚 BookVerse</a>
+        </div>
+
+        <div class="breadcrumbs">
+            <span id="reader-book-title" class="breadcrumb-item">{{ book_title }}</span>
+            <span id="breadcrumb-chapter" class="breadcrumb-item">Глава: загрузка...</span>
+            <span id="breadcrumb-page" class="breadcrumb-item">Фрагмент: 1</span>
+        </div>
+
+        <div class="nav-actions">
+            <button id="toggle-chapters" class="upload-btn" type="button">
+                <span>📑</span>
+                <span>Главы</span>
+            </button>
+            <button id="menuButton" class="menu-btn" type="button" aria-label="Открыть меню книги">
+                <span class="icon-text">☰</span>
+            </button>
+            <a href="/" class="menu-btn reader-back-btn" aria-label="Вернуться в библиотеку">
+                <span class="icon-text">←</span>
+            </a>
+        </div>
+    </nav>
+
+    <main class="reader-shell">
+        <section class="reader-column">
+            <header class="reader-header">
+                <h1 id="reader-title">{{ book_title }}</h1>
+                <p id="reader-meta">Загружаем текст книги...</p>
+            </header>
+
+            <div id="reader-error" class="error-message" style="display:none;"></div>
+
+            <article id="text-layer" class="text-layer">
+                <div id="page-content" class="page-content">
+                    Подготавливаем текст для чтения...
+                </div>
+            </article>
+
+            <div class="page-navigation">
+                <button id="prev-page" class="upload-btn nav-inline-btn" type="button">◀ Назад</button>
+                <div class="page-info">
+                    <input type="number" id="page-input" min="1" value="1">
+                    <span>из</span>
+                    <span id="page-count">0</span>
+                </div>
+                <button id="next-page" class="upload-btn nav-inline-btn" type="button">Вперед ▶</button>
+            </div>
+
+            <div class="reading-percentage">
+                Прочитано: <span id="progress-percentage">0%</span>
+            </div>
+        </section>
+
+        <aside class="reader-info-card">
+            <h3>О книге</h3>
+            <div id="reader-side-meta" class="reader-side-meta">Данные появятся после загрузки.</div>
+        </aside>
+    </main>
+
+    <aside class="chapters-panel" id="chapters-panel">
+        <div class="chapters-header">
+            <h3>Содержание</h3>
+            <button class="nav-inline-btn secondary-btn" id="close-chapters" type="button">✕</button>
+        </div>
+        <div id="chapters-list" class="chapters-list">
+            <p class="empty-placeholder">Главы загружаются...</p>
+        </div>
+    </aside>
+
+    <aside class="side-panel right-panel" id="right-panel">
+        <div class="panel-content" id="panel-content">
+            <div class="panel-header">
+                <div class="user-profile">
+                    <div class="user-info">
+                        <h3 class="username">Меню книги</h3>
+                        <p class="user-email">{{ book_title }}</p>
+                    </div>
+                </div>
+                <button class="close-btn" id="closeBtn" type="button">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <nav class="panel-nav">
+                <ul class="menu-list">
+                    <li>
+                        <button class="menu-item" id="showSearchBtn" type="button">
+                            <span class="icon">🔎</span>
+                            <span class="text">Поиск фрагментов</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="menu-item" id="showAskBtn" type="button">
+                            <span class="icon">💬</span>
+                            <span class="text">Ответы по книге</span>
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+
+            <section class="panel-screen" id="reader-panel-screen"></section>
+        </div>
+    </aside>
+
+    <script>
+        window.BOOKVERSE_READER = {
+            bookId: {{ book_id | tojson }},
+            bookTitle: {{ book_title | tojson }}
+        };
+    </script>
+    <script src="{{ request.url_for('static', path='legacy/reader.js') }}?v={{ asset_version }}" defer></script>
+</body>
+</html>
