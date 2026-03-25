@@ -122,7 +122,7 @@ class GroundedQAService:
     def answer(self, question: str, fragments: Sequence[SearchFragment], citations_k: int) -> tuple[bool, str, list[SearchFragment], float, str | None]:
         citations = list(fragments[:citations_k])
         if not fragments:
-            return False, "В загруженных текстах нет надежного ответа на этот вопрос.", [], 0.0, "Ответ не найден"
+            return False, "В загруженных текстах нет надежного ответа на этот вопрос. Возможно, ваш запрос не связан с текстом книги.", [], 0.0, "Ответ не найден"
         try:
             llm_answer = self.client.answer(question, citations)
         except LLMNotConfiguredError as error:
@@ -132,5 +132,7 @@ class GroundedQAService:
 
         if not llm_answer.supported:
             answer = llm_answer.answer.strip() or "В загруженных текстах нет надежного ответа на этот вопрос."
-            return False, answer, citations, llm_answer.confidence, llm_answer.message or "Недостаточно опоры в текстах"
+            if "возможно" not in answer.lower() and "не связан" not in answer.lower():
+                answer = f"{answer} Возможно, ваш запрос не связан с текстом книги."
+            return False, answer, citations, 0.0, llm_answer.message or "Нашлись только близкие фрагменты, но опоры для точного ответа недостаточно. Возможно, вопрос не связан с содержанием книги."
         return True, llm_answer.answer.strip(), citations, llm_answer.confidence, None

@@ -33,6 +33,18 @@ from bookverse.search_index import HybridSearchIndex
 from bookverse.storage import Repository
 
 
+def is_weak_search_result(fragments: list[Any]) -> bool:
+    if not fragments:
+        return False
+    top = fragments[0]
+    top_lexical = float(getattr(top, "lexical_score", 0.0) or 0.0)
+    top_vector = float(getattr(top, "vector_score", 0.0) or 0.0)
+    top_score = float(getattr(top, "score", 0.0) or 0.0)
+    if top_lexical >= 1.0:
+        return False
+    return top_score < 0.2 and top_vector < 0.78
+
+
 def create_app(settings: Settings | None = None, qa_client: Any | None = None) -> FastAPI:
     settings = settings or Settings()
     settings.ensure_directories()
@@ -205,10 +217,13 @@ def create_app(settings: Settings | None = None, qa_client: Any | None = None) -
         )
         if not fragments:
             return SearchResponse(found=False, fragments=[], message="Подходящие фрагменты не найдены.")
+        message = None
+        if is_weak_search_result(fragments):
+            message = "Нашлись только приблизительные совпадения. Возможно, ваш запрос не связан с текстом книги."
         return SearchResponse(
             found=True,
             fragments=[FragmentResponse.model_validate(fragment, from_attributes=True) for fragment in fragments],
-            message=None,
+            message=message,
         )
 
     @app.post("/api/ask", response_model=AskResponse)

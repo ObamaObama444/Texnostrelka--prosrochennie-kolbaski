@@ -306,6 +306,11 @@
     border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
+.reader-body .panel-screen .answer-box.is-hidden,
+.answer-box.is-hidden {
+    display: none;
+}
+
 .reader-body .close-btn {
     color: rgba(255, 255, 255, 0.96);
 }
@@ -316,6 +321,21 @@
 
 .reader-body .panel-screen .results-list {
     gap: 10px;
+}
+
+.reader-body .panel-screen .results-caption {
+    margin: 2px 0 -2px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.reader-body .panel-screen .results-caption[data-tone="ok"] {
+    color: rgba(236, 253, 245, 0.96);
+}
+
+.reader-body .panel-screen .results-caption[data-tone="warning"] {
+    color: rgba(255, 244, 214, 0.98);
 }
 
 .reader-body .panel-screen .result-text {

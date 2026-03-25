@@ -55,6 +55,12 @@ function setStatusLine(node, text, isError = false) {
   node.classList.toggle("error", Boolean(isError));
 }
 
+function setCaption(node, text, tone = "neutral") {
+  if (!node) return;
+  node.textContent = text;
+  node.dataset.tone = tone;
+}
+
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
   const payload = await response.json();
@@ -170,6 +176,7 @@ function searchHtml() {
           <button id="reader-search-button" type="button">Искать</button>
         </div>
         <div id="reader-search-status" class="status-line">Ожидание запроса.</div>
+        <div id="reader-search-caption" class="results-caption" data-tone="neutral">Результаты поиска появятся здесь.</div>
         <div id="reader-search-results" class="results-list">
           <div class="empty-placeholder">Результаты поиска появятся здесь.</div>
         </div>
@@ -197,6 +204,7 @@ function askHtml() {
         <div class="answer-box">
           <p class="answer-text" id="reader-answer-box">Ответ появится здесь.</p>
         </div>
+        <div id="reader-citation-caption" class="results-caption" data-tone="neutral">Цитаты появятся здесь.</div>
         <div id="reader-citation-results" class="results-list">
           <div class="empty-placeholder">Цитаты появятся здесь.</div>
         </div>
@@ -205,10 +213,10 @@ function askHtml() {
   `;
 }
 
-function renderResultList(target, fragments) {
+function renderResultList(target, fragments, emptyText = "Результаты появятся здесь.") {
   if (!target) return;
   if (!fragments?.length) {
-    target.innerHTML = '<div class="empty-placeholder">Результаты появятся здесь.</div>';
+    target.innerHTML = `<div class="empty-placeholder">${emptyText}</div>`;
     return;
   }
   target.innerHTML = fragments.map((fragment) => `
@@ -249,26 +257,50 @@ function bindPanelDynamic() {
     const query = document.getElementById("reader-search-query")?.value.trim() || "";
     const statusNode = document.getElementById("reader-search-status");
     const resultsNode = document.getElementById("reader-search-results");
+    const captionNode = document.getElementById("reader-search-caption");
     if (!query) {
       setStatusLine(statusNode, "Введите запрос.", true);
       return;
     }
     setStatusLine(statusNode, "Ищу фрагменты...");
+    setCaption(captionNode, "Подбираю лучшие фрагменты из текущей книги.", "neutral");
     try {
       const payload = await fetchJson("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, book_ids: resolveScope("reader-search-scope"), top_k: 5 }),
       });
+      const weakMatch = Boolean(payload.message);
       setStatusLine(
         statusNode,
-        payload.found ? `Найдено ${payload.fragments.length} фрагментов.` : (payload.message || "Ничего не найдено."),
-        !payload.found,
+        payload.found
+          ? (payload.message || `Найдено ${payload.fragments.length} фрагментов.`)
+          : (payload.message || "Ничего не найдено."),
+        !payload.found || weakMatch,
       );
-      renderResultList(resultsNode, payload.fragments || []);
+      setCaption(
+        captionNode,
+        !payload.found
+          ? "Подходящих фрагментов в этой книге не нашлось."
+          : weakMatch
+            ? "Ниже показаны ближайшие фрагменты. Возможно, запрос не связан с текстом книги."
+            : "Ниже показаны фрагменты, которые лучше всего совпали с запросом."
+        ,
+        payload.found && !weakMatch ? "ok" : "warning",
+      );
+      renderResultList(
+        resultsNode,
+        payload.fragments || [],
+        !payload.found
+          ? "Подходящие фрагменты не найдены."
+          : weakMatch
+            ? "Нашлись только приблизительные совпадения."
+            : "Подходящие фрагменты не найдены.",
+      );
     } catch (error) {
       setStatusLine(statusNode, error.message || "Ошибка поиска", true);
-      renderResultList(resultsNode, []);
+      setCaption(captionNode, "Поиск не выполнился из-за ошибки.", "warning");
+      renderResultList(resultsNode, [], "Результаты поиска пока недоступны.");
     }
   });
 
@@ -276,12 +308,15 @@ function bindPanelDynamic() {
     const query = document.getElementById("reader-ask-query")?.value.trim() || "";
     const statusNode = document.getElementById("reader-ask-status");
     const answerBox = document.getElementById("reader-answer-box");
+    const answerWrap = answerBox?.closest(".answer-box");
     const resultsNode = document.getElementById("reader-citation-results");
+    const captionNode = document.getElementById("reader-citation-caption");
     if (!query) {
       setStatusLine(statusNode, "Введите вопрос.", true);
       return;
     }
     setStatusLine(statusNode, "Формирую ответ...");
+    setCaption(captionNode, "Подбираю цитаты и проверяю, хватает ли их для надежного ответа.", "neutral");
     try {
       const payload = await fetchJson("/api/ask", {
         method: "POST",
@@ -289,18 +324,32 @@ function bindPanelDynamic() {
         body: JSON.stringify({ question: query, book_ids: resolveScope("reader-ask-scope"), top_k: 5, citations_k: 3 }),
       });
       if (answerBox) answerBox.textContent = payload.answer || "Ответ не получен.";
+      answerWrap?.classList.toggle("is-hidden", !payload.found);
       setStatusLine(
         statusNode,
         payload.found
           ? `Ответ основан на ${(payload.citations || []).length} цитатах.`
-          : (payload.message || payload.answer || "Ничего не найдено."),
+          : (payload.message || "Нашлись только близкие фрагменты, но опоры для ответа недостаточно. Возможно, вопрос не связан с содержанием книги."),
         !payload.found,
       );
-      renderResultList(resultsNode, payload.citations || []);
+      setCaption(
+        captionNode,
+        payload.found
+          ? "Ниже показаны цитаты, на которых основан ответ."
+          : "Ниже показаны ближайшие фрагменты. Они похожи на запрос, но точного ответа из них не следует. Возможно, сам вопрос не относится к книге.",
+        payload.found ? "ok" : "warning",
+      );
+      renderResultList(
+        resultsNode,
+        payload.citations || [],
+        payload.found ? "Цитаты появятся здесь." : "Подходящих фрагментов для надежного ответа не нашлось.",
+      );
     } catch (error) {
       if (answerBox) answerBox.textContent = "Ответ не получен.";
+      answerWrap?.classList.remove("is-hidden");
       setStatusLine(statusNode, error.message || "Ошибка запроса", true);
-      renderResultList(resultsNode, []);
+      setCaption(captionNode, "Не удалось получить ответ или подобрать цитаты.", "warning");
+      renderResultList(resultsNode, [], "Цитаты пока недоступны.");
     }
   });
 }

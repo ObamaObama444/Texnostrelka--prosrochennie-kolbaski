@@ -54,6 +54,12 @@ function setStatusLine(node, text, isError = false) {
   node.classList.toggle("error", Boolean(isError));
 }
 
+function setCaption(node, text, tone = "neutral") {
+  if (!node) return;
+  node.textContent = text;
+  node.dataset.tone = tone;
+}
+
 function openPanel() {
   state.panelOpen = true;
   el.panel?.classList.add("visible");
@@ -348,6 +354,7 @@ function askToolHtml() {
         <div class="answer-box">
           <p class="answer-text" id="answer-box">Ответ появится здесь.</p>
         </div>
+        <div id="citation-caption" class="results-caption" data-tone="neutral">Цитаты появятся здесь.</div>
         <div id="citation-results" class="results-list">
           <div class="empty-placeholder">Цитаты появятся здесь.</div>
         </div>
@@ -356,10 +363,10 @@ function askToolHtml() {
   `;
 }
 
-function renderResults(target, fragments) {
+function renderResults(target, fragments, emptyText = "Результаты появятся здесь.") {
   if (!target) return;
   if (!fragments?.length) {
-    target.innerHTML = '<div class="empty-placeholder">Результаты появятся здесь.</div>';
+    target.innerHTML = `<div class="empty-placeholder">${emptyText}</div>`;
     return;
   }
   target.innerHTML = fragments.map((fragment) => `
@@ -504,12 +511,23 @@ function bindDynamicPanelButtons() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, book_ids: scope.bookIds, top_k: 5 }),
       });
+      const weakMatch = Boolean(payload.message);
       setStatusLine(
         statusNode,
-        payload.found ? `Найдено ${payload.fragments.length} фрагментов.` : (payload.message || "Ничего не найдено."),
-        !payload.found,
+        payload.found
+          ? (payload.message || `Найдено ${payload.fragments.length} фрагментов.`)
+          : (payload.message || "Ничего не найдено."),
+        !payload.found || weakMatch,
       );
-      renderResults(resultsNode, payload.fragments || []);
+      renderResults(
+        resultsNode,
+        payload.fragments || [],
+        !payload.found
+          ? "Подходящие фрагменты не найдены."
+          : weakMatch
+            ? "Нашлись только приблизительные совпадения."
+            : "Результаты появятся здесь.",
+      );
     } catch (error) {
       setStatusLine(statusNode, error.message || "Ошибка поиска", true);
       renderResults(resultsNode, []);
@@ -519,7 +537,9 @@ function bindDynamicPanelButtons() {
     const query = document.getElementById("ask-query")?.value.trim() || "";
     const statusNode = document.getElementById("ask-status");
     const answerBox = document.getElementById("answer-box");
+    const answerWrap = answerBox?.closest(".answer-box");
     const citationsNode = document.getElementById("citation-results");
+    const captionNode = document.getElementById("citation-caption");
     if (!query) {
       setStatusLine(statusNode, "Введите вопрос.", true);
       return;
@@ -532,6 +552,7 @@ function bindDynamicPanelButtons() {
       return;
     }
     setStatusLine(statusNode, "Формирую ответ...");
+    setCaption(captionNode, "Подбираю цитаты и проверяю, хватает ли их для надежного ответа.", "neutral");
     try {
       const payload = await fetchJson("/api/ask", {
         method: "POST",
@@ -539,18 +560,32 @@ function bindDynamicPanelButtons() {
         body: JSON.stringify({ question: query, book_ids: scope.bookIds, top_k: 5, citations_k: 3 }),
       });
       if (answerBox) answerBox.textContent = payload.answer || "Ответ не получен.";
+      answerWrap?.classList.toggle("is-hidden", !payload.found);
       setStatusLine(
         statusNode,
         payload.found
           ? `Ответ основан на ${(payload.citations || []).length} цитатах. Confidence ${Number(payload.confidence || 0).toFixed(2)}.`
-          : (payload.message || payload.answer || "Ничего не найдено."),
+          : (payload.message || "Нашлись только близкие фрагменты, но опоры для ответа недостаточно. Возможно, вопрос не связан с содержанием книги."),
         !payload.found,
       );
-      renderResults(citationsNode, payload.citations || []);
+      setCaption(
+        captionNode,
+        payload.found
+          ? "Ниже показаны цитаты, на которых основан ответ."
+          : "Ниже показаны ближайшие фрагменты. Они похожи на запрос, но точного ответа из них не следует. Возможно, сам вопрос не относится к книге.",
+        payload.found ? "ok" : "warning",
+      );
+      renderResults(
+        citationsNode,
+        payload.citations || [],
+        payload.found ? "Цитаты появятся здесь." : "Подходящих фрагментов для надежного ответа не нашлось.",
+      );
     } catch (error) {
       if (answerBox) answerBox.textContent = "Mistral временно недоступен.";
+      answerWrap?.classList.remove("is-hidden");
       setStatusLine(statusNode, error.message || "Ошибка запроса", true);
-      renderResults(citationsNode, []);
+      setCaption(captionNode, "Не удалось получить ответ или подобрать цитаты.", "warning");
+      renderResults(citationsNode, [], "Цитаты пока недоступны.");
     }
   });
 }
